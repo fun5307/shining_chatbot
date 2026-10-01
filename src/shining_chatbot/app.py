@@ -5,41 +5,11 @@ import random
 from urllib.parse import quote
 
 import streamlit as st
+from catalog import ALBUMS
 
 st.set_page_config(page_title="SOUNDROOM · 오늘의 음악", page_icon="🎧", layout="wide")
 
-# 샘플 큐레이션. 기분 태그는 앱의 편집 기준이며 실시간 추천이 아닙니다.
-# 아트워크는 CSS로 만든 그래픽으로, 실제 앨범 커버가 아닙니다.
-ALBUMS = [
-    ("Nujabes", "Modal Soul", "Hip Hop", "#ad6548", "#efc3a4", "m.",
-     "재즈의 온기와 느긋한 비트. 머릿속에 여백이 필요한 날에.",
-     "https://music.apple.com/us/album/modal-soul/1078914477",
-     [("Feather", "집중할 때"), ("Luv(sic) [pt3]", "쉬고 싶을 때")]),
-    ("Frank Ocean", "Blonde", "R&B", "#596e52", "#d9e0a8", "b.",
-     "조용한 방, 조금 느린 호흡. 섬세한 목소리에 귀를 기울여보세요.",
-     "https://music.apple.com/us/album/blonde/1146195596",
-     [("Pink + White", "쉬고 싶을 때"), ("Ivy", "감성에 잠길 때")]),
-    ("Radiohead", "In Rainbows", "Rock", "#b95137", "#f4d984", "ir.",
-     "겹겹이 쌓이는 기타와 목소리. 한 장에 깊이 빠지고 싶은 날.",
-     "https://music.apple.com/us/album/in-rainbows/1109714933",
-     [("Weird Fishes / Arpeggi", "집중할 때"), ("Nude", "감성에 잠길 때")]),
-    ("Bill Evans Trio", "Waltz for Debby", "Jazz", "#496c78", "#c2e0df", "w.",
-     "작은 재즈 바에 앉은 듯한 기분. 커피 한 잔과 함께 들어보세요.",
-     "https://music.apple.com/ph/album/waltz-for-debby/684340223",
-     [("Waltz for Debby", "집중할 때"), ("My Foolish Heart", "쉬고 싶을 때")]),
-    ("Arthur Rubinstein", "Chopin: Nocturnes", "Classical", "#746683", "#e6d8ec", "n°",
-     "불을 조금 낮추고, 피아노만 남겨두는 시간. 밤에 어울리는 한 장.",
-     "https://music.apple.com/us/album/chopin-nocturnes/594180316",
-     [("Nocturne, Op. 9 No. 2", "쉬고 싶을 때"), ("Nocturne, Op. 9 No. 1", "집중할 때")]),
-    ("SHINee", "Odd", "Pop", "#368a81", "#bcefe0", "o!",
-     "청량한 리듬과 다채로운 보컬. 평범한 하루에 색을 더하는 앨범.",
-     "https://music.apple.com/us/album/odd-the-4th-album/994424563",
-     [("View", "기분 올릴 때"), ("Love Sick", "감성에 잠길 때")]),
-    ("Daft Punk", "Discovery", "Electronic", "#3f4468", "#e7bc71", "d★",
-     "반짝이는 신스와 따뜻한 그루브. 익숙한 길도 새롭게 들리게.",
-     "https://music.apple.com/us/album/discovery/697194953",
-     [("Something About Us", "감성에 잠길 때"), ("Digital Love", "기분 올릴 때")]),
-]
+# 샘플 큐레이션은 catalog.py에서 관리합니다. 아트워크는 자체 제작 CSS입니다.
 TRACKS = [
     {"id": f"{a}-{t}", "album_id": a, "artist": album[0], "album": album[1],
      "genre": album[2], "title": title, "mood": mood}
@@ -122,6 +92,10 @@ if "saved_tracks" not in st.session_state:
     st.session_state.saved_tracks = []
 if "shuffle_seed" not in st.session_state:
     st.session_state.shuffle_seed = 0
+if "visible_tracks" not in st.session_state:
+    st.session_state.visible_tracks = 12
+if "visible_albums" not in st.session_state:
+    st.session_state.visible_albums = 12
 
 
 def toggle_saved(track_id):
@@ -136,6 +110,10 @@ def shuffle():
     st.session_state.shuffle_seed += 1
 
 
+def show_more(kind):
+    st.session_state[kind] += 12
+
+
 def reset_filters():
     st.session_state.genre = "전체 장르"
     st.session_state.mood = "모든 기분"
@@ -143,7 +121,7 @@ def reset_filters():
 
 
 def card_html(album, title, number, mood=""):
-    artist, _, genre, color, accent, mark, note, _, _ = album
+    artist, _, genre, color, accent, mark, note, _, _ = album[:9]
     return f"""<div class="art" aria-hidden="true" style="--cover:{color};--accent:{accent}">
         <div class="art-label">SOUNDROOM / {escape(genre)}</div><div class="art-mark">{escape(mark)}</div>
         <span class="art-index">{number:02d}</span></div><div class="track-info">
@@ -180,7 +158,7 @@ st.html(f"""<div class="brandbar"><div class="brand"><span>◉</span>SOUNDROOM</
 
 with st.container(border=True):
     genre_col, mood_col, search_col = st.columns([1, 1, 1.5])
-    genre = genre_col.selectbox("좋아하는 장르", ["전체 장르"] + [a[2] for a in ALBUMS], key="genre")
+    genre = genre_col.selectbox("좋아하는 장르", ["전체 장르"] + list(dict.fromkeys(a[2] for a in ALBUMS)), key="genre")
     mood = mood_col.selectbox("지금의 기분", ["모든 기분", "집중할 때", "쉬고 싶을 때", "기분 올릴 때", "감성에 잠길 때"], key="mood")
     search = search_col.text_input("곡 · 아티스트 · 앨범 검색", placeholder="SHINee, Jazz, 좋아하는 곡…", key="search")
 
@@ -198,7 +176,9 @@ song_tab, album_tab, saved_tab = st.tabs(["곡 추천", "앨범 추천", f"내 �
 with song_tab:
     st.html(f'<div class="result-line">취향에 맞는 <b>{len(matches)}곡</b> · 마음에 드는 곡은 하트로 담아두세요.</div>')
     if matches:
-        track_grid(matches, "recommend")
+        track_grid(matches[:st.session_state.visible_tracks], "recommend")
+        if len(matches) > st.session_state.visible_tracks:
+            st.button("곡 더 보기 ↓", on_click=show_more, args=("visible_tracks",))
     else:
         st.html('<div class="empty-state"><b>아직 맞는 곡을 찾지 못했어요.</b><p>기분이나 장르를 바꾸거나, 검색어를 조금 줄여보세요.</p></div>')
         st.button("필터 초기화", on_click=reset_filters)
@@ -206,13 +186,16 @@ with song_tab:
 with album_tab:
     album_ids = list(dict.fromkeys(t["album_id"] for t in matches))
     st.html(f'<div class="result-line">추천 곡이 담긴 <b>{len(album_ids)}장의 앨범</b> · 한 곡이 좋았다면, 앨범 전체를 만나보세요.</div>')
-    for start in range(0, len(album_ids), 3):
-        for number, (column, album_id) in enumerate(zip(st.columns(3), album_ids[start:start + 3]), start + 1):
+    visible_album_ids = album_ids[:st.session_state.visible_albums]
+    for start in range(0, len(visible_album_ids), 3):
+        for number, (column, album_id) in enumerate(zip(st.columns(3), visible_album_ids[start:start + 3]), start + 1):
             album = ALBUMS[album_id]
             with column, st.container(border=True):
                 st.html(card_html(album, album[1], number))
                 st.caption("추천 수록곡 · " + " / ".join(t[0] for t in album[8]))
                 st.link_button("Apple Music에서 앨범 보기 ↗", album[7], width="stretch")
+    if len(album_ids) > st.session_state.visible_albums:
+        st.button("앨범 더 보기 ↓", on_click=show_more, args=("visible_albums",))
     if not album_ids:
         st.info("현재 조건에 맞는 앨범이 없어요. 곡 추천 탭에서 필터를 초기화해보세요.")
 
@@ -230,4 +213,4 @@ with saved_tab:
     st.caption("저장한 곡은 현재 접속 세션 동안 유지됩니다. 오래 간직하려면 플레이리스트를 내려받으세요.")
 
 st.html('''<div class="footer"><span><b>SOUNDROOM</b> &nbsp; 음악으로 채우는 작은 여유.</span>
-    <span>샘플 큐레이션 14곡 · 자체 제작 아트워크<br>YouTube 버튼은 검색 결과로, 앨범 버튼은 Apple Music으로 연결됩니다.</span></div>''')
+    <span>샘플 큐레이션 56장 · 112곡 · 자체 제작 아트워크<br>YouTube 버튼은 검색 결과로, 앨범 버튼은 Apple Music으로 연결됩니다.</span></div>''')
