@@ -2,12 +2,39 @@
 
 from html import escape
 import random
+import re
+import unicodedata
 from urllib.parse import quote
 
 import streamlit as st
 from catalog import ALBUMS
 
 st.set_page_config(page_title="SOUNDROOM · 오늘의 음악", page_icon="🎧", layout="wide")
+
+GENRE_KEYWORDS = {
+    "Hip Hop": "힙합 힙 홉",
+    "R&B": "알앤비 알엔비 리듬앤블루스",
+    "Rock": "록 락 록음악",
+    "Jazz": "재즈",
+    "Classical": "클래식 고전음악",
+    "Pop": "팝 팝음악 케이팝",
+    "Electronic": "일렉트로닉 전자음악 EDM",
+}
+
+
+def search_words(value):
+    """Match case, accents and punctuation consistently in both input and catalog."""
+    plain = "".join(char for char in unicodedata.normalize("NFKD", value.casefold())
+                    if not unicodedata.combining(char))
+    return re.findall(r"\w+", plain)
+
+
+def track_matches(track, words):
+    album = ALBUMS[track["album_id"]]
+    fields = (track["title"], track["artist"], track["album"], track["genre"],
+              track["mood"], album[6], GENRE_KEYWORDS[track["genre"]])
+    haystack = " ".join(search_words(" ".join(fields)))
+    return all(word in haystack for word in words)
 
 # 샘플 큐레이션은 catalog.py에서 관리합니다. 아트워크는 자체 제작 CSS입니다.
 TRACKS = [
@@ -19,28 +46,33 @@ TRACKS = [
 
 st.html("""
 <style>
-:root { --paper:#f6f4ee; --ink:#282c25; --muted:#72756a; --line:#e2e1d8; --orange:#c8512d; }
+:root {
+ --paper:#f6f4ee; --ink:#282c25; --muted:#72756a; --line:#e2e1d8; --orange:#c8512d;
+ --header:rgba(246,244,238,.94); --hero:#eae9df; --hero-copy:#666b60;
+ --card:#fffdf8; --note:#626759; --label:#606557; --empty:#eae9df70;
+ --empty-border:#cccfc2; --button-hover:#fbeee5; --record-shadow:#28302630;
+}
 .stApp { background:var(--paper); color:var(--ink); }
 .stApp, .stApp button, .stApp input { font-family:'Segoe UI','Malgun Gothic',sans-serif; }
-[data-testid="stHeader"] { background:rgba(246,244,238,.94); }
-.stMainBlockContainer { max-width:1180px; padding:2.6rem 2.5rem 2rem; }
+[data-testid="stHeader"] { background:var(--header); }
+.stMainBlockContainer { max-width:1180px; padding:6rem 2.5rem 2rem; }
 .brandbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:24px; gap:16px; }
 .brand { font-size:22px; letter-spacing:-1px; font-weight:800; }
 .brand span { color:var(--orange); margin-right:8px; }
 .edition { font-size:10px; letter-spacing:2px; color:var(--muted); }
 .library-count { border:1px solid var(--line); padding:8px 14px; border-radius:30px; font-size:12px; }
-.hero { background:#eae9df; border-radius:18px; padding:46px; overflow:hidden; display:flex; align-items:center; justify-content:space-between; min-height:330px; gap:20px; }
+.hero { background:var(--hero); border-radius:18px; padding:46px; overflow:hidden; display:flex; align-items:center; justify-content:space-between; min-height:330px; gap:20px; }
 .hero-copy { z-index:1; }
 .eyebrow { font-size:10px; font-weight:700; letter-spacing:2.3px; color:var(--orange); margin-bottom:18px; }
 .hero h1 { font-size:clamp(32px,4.2vw,51px); font-weight:800; line-height:1.3; letter-spacing:-2.5px; margin:0 0 18px; color:var(--ink); }
 .hero h1 em { font-style:normal; color:var(--orange); }
-.hero p { color:#666b60; font-size:14px; line-height:1.9; margin:0; }
-.hero-foot { margin-top:27px; font-size:10px; letter-spacing:1.5px; color:#626759; }
+.hero p { color:var(--hero-copy); font-size:14px; line-height:1.9; margin:0; }
+.hero-foot { margin-top:27px; font-size:10px; letter-spacing:1.5px; color:var(--note); }
 .hero-foot span { color:var(--orange); margin-right:10px; }
 .record-scene { position:relative; flex:0 0 310px; height:270px; }
-.record { position:absolute; width:250px; height:250px; top:10px; right:0; border-radius:50%; background:repeating-radial-gradient(circle,#262b24 0px,#262b24 2px,#353b30 3px,#22271f 4px); box-shadow:12px 18px 26px #28302630; }
-.record::after { content:''; position:absolute; inset:88px; border-radius:50%; background:radial-gradient(circle,#eae9df 0 5px,#c8512d 6px 100%); border:1px solid #ef9970; }
-.sleeve { position:absolute; left:0; bottom:0; width:178px; height:212px; background:#c8512d; transform:rotate(-9deg); box-shadow:5px 10px 25px #28302626; padding:20px; color:#f9e9cd; overflow:hidden; }
+.record { position:absolute; width:250px; height:250px; top:10px; right:0; border-radius:50%; background:repeating-radial-gradient(circle,#262b24 0px,#262b24 2px,#353b30 3px,#22271f 4px); box-shadow:12px 18px 26px var(--record-shadow); }
+.record::after { content:''; position:absolute; inset:88px; border-radius:50%; background:radial-gradient(circle,var(--hero) 0 5px,var(--orange) 6px 100%); border:1px solid #ef9970; }
+.sleeve { position:absolute; left:0; bottom:0; width:178px; height:212px; background:var(--orange); transform:rotate(-9deg); box-shadow:5px 10px 25px var(--record-shadow); padding:20px; color:#f9e9cd; overflow:hidden; }
 .sleeve::after { content:''; position:absolute; width:170px; height:170px; border:26px solid #f5c78b; border-radius:50%; bottom:-66px; left:-31px; }
 .sleeve b { font-size:39px; line-height:.95; letter-spacing:-2px; }
 .sleeve small { display:block; margin-top:14px; font-size:8px; letter-spacing:2px; }
@@ -48,10 +80,10 @@ st.html("""
 .section-head h2 { margin:0; font-size:22px; font-weight:700; letter-spacing:-.8px; }
 .section-head span { color:var(--muted); font-size:12px; }
 [data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--line) !important; border-radius:14px !important; }
-[data-testid="stWidgetLabel"] p { color:#606557; font-size:12px; font-weight:600; }
-[data-baseweb="select"] > div, [data-testid="stTextInput"] input { background:#fffdf8; color:var(--ink); border-color:var(--line); border-radius:9px; }
+[data-testid="stWidgetLabel"] p { color:var(--label); font-size:12px; font-weight:600; }
+[data-baseweb="select"] > div, [data-testid="stTextInput"] input { background:var(--card); color:var(--ink); border-color:var(--line); border-radius:9px; }
 [data-testid="stTabs"] [role="tablist"] { border-bottom:1px solid var(--line); gap:26px; }
-[data-testid="stTabs"] [role="tab"] { color:#77796f; padding:12px 0; }
+[data-testid="stTabs"] [role="tab"] { color:var(--muted); padding:12px 0; }
 [data-testid="stTabs"] [aria-selected="true"] { color:var(--orange); }
 [data-testid="stTabs"] [data-baseweb="tab-highlight"] { background:var(--orange); }
 .result-line { color:var(--muted); font-size:12px; margin:22px 0 18px; }
@@ -65,19 +97,19 @@ st.html("""
 .genre { color:var(--orange); font-size:9px; text-transform:uppercase; font-weight:700; letter-spacing:1.6px; }
 .track-info h3 { color:var(--ink); font-size:19px; line-height:1.35; margin:7px 0 5px; letter-spacing:-.4px; padding:0; }
 .artist { color:var(--muted); font-size:12px; }
-.note { color:#626759; font-size:12px; line-height:1.8; min-height:44px; margin:13px 0 9px; }
-.mood-tag { display:inline-block; border:1px solid var(--line); padding:4px 8px; border-radius:5px; color:#666b60; font-size:10px; }
-.stButton button, .stLinkButton a, .stDownloadButton button { background:#fffdf8; color:var(--ink); border:1px solid var(--line); border-radius:8px; min-height:39px; }
-.stButton button:hover, .stLinkButton a:hover { border-color:var(--orange); color:var(--orange); background:#fbeee5; }
+.note { color:var(--note); font-size:12px; line-height:1.8; min-height:44px; margin:13px 0 9px; }
+.mood-tag { display:inline-block; border:1px solid var(--line); padding:4px 8px; border-radius:5px; color:var(--hero-copy); font-size:10px; }
+.stButton button, .stLinkButton a, .stDownloadButton button { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:8px; min-height:39px; }
+.stButton button:hover, .stLinkButton a:hover { border-color:var(--orange); color:var(--orange); background:var(--button-hover); }
 .stButton button[kind="primary"] { background:var(--orange); border-color:var(--orange); color:white; }
 .stButton button p, .stLinkButton a p, .stDownloadButton button p { font-size:12px; }
-.empty-state { text-align:center; padding:48px 20px; background:#eae9df70; border:1px dashed #cccfc2; border-radius:12px; margin:22px 0; }
+.empty-state { text-align:center; padding:48px 20px; background:var(--empty); border:1px dashed var(--empty-border); border-radius:12px; margin:22px 0; }
 .empty-state b { display:block; font-size:19px; margin:10px 0; }
 .empty-state p { font-size:13px; color:var(--muted); }
 .footer { display:flex; justify-content:space-between; gap:15px; border-top:1px solid var(--line); margin-top:38px; padding-top:20px; color:var(--muted); font-size:10px; line-height:1.9; }
 [data-testid="stCaptionContainer"] { color:var(--muted); }
 @media (max-width:760px) {
- .stMainBlockContainer { padding:1.5rem 1.2rem; }
+ .stMainBlockContainer { padding:5.5rem 1.2rem 1.5rem; }
  .hero { padding:28px; min-height:0; }
  .hero h1 { font-size:35px; }
  .record-scene { flex-basis:170px; transform:scale(.7); transform-origin:right center; margin-left:-70px; }
@@ -87,6 +119,76 @@ st.html("""
 @media (max-width:520px) { .record-scene { display:none; } .hero h1 { font-size:32px; } .footer { flex-direction:column; } }
 </style>
 """)
+
+# Streamlit 설정 메뉴에서 선택한 테마를 따라 자체 HTML/CSS 색상도 전환합니다.
+if st.context.theme.type == "dark":
+    st.html("""
+    <style>
+    :root {
+      --paper:#141a19; --ink:#f0f0e9; --muted:#aab5ad; --line:#3b4842;
+      --orange:#f2a57b; --header:rgba(20,26,25,.95); --hero:#24332f;
+      --hero-copy:#c5d0c8; --card:#202a27; --note:#bfcbc1; --label:#d7ded6;
+      --empty:#202c28; --empty-border:#57655b; --button-hover:#30423a;
+      --record-shadow:#070b0a7a;
+    }
+    .stApp { background:var(--paper); color:var(--ink); }
+    [data-testid="stHeader"] { background:var(--header); }
+    [data-testid="stVerticalBlockBorderWrapper"] > div { background:var(--card); }
+    [data-testid="stTextInput"] input::placeholder { color:var(--muted); }
+    .sleeve { color:#211e1a; }
+    .stButton button[kind="primary"] { color:#22241f; }
+    </style>
+    """)
+
+# Streamlit의 테마 메뉴는 Python 스크립트를 즉시 다시 실행하지 않을 수 있습니다.
+# 기본 테마가 그리는 body 색을 확인해 같은 화면에서 팔레트를 갱신합니다.
+st.html(r"""
+<style>
+html[data-soundroom-theme="light"] {
+ --paper:#f6f4ee; --ink:#282c25; --muted:#72756a; --line:#e2e1d8; --orange:#c8512d;
+ --header:rgba(246,244,238,.94); --hero:#eae9df; --hero-copy:#666b60;
+ --card:#fffdf8; --note:#626759; --label:#606557; --empty:#eae9df70;
+ --empty-border:#cccfc2; --button-hover:#fbeee5; --record-shadow:#28302630;
+}
+html[data-soundroom-theme="dark"] {
+ --paper:#141a19; --ink:#f0f0e9; --muted:#aab5ad; --line:#3b4842;
+ --orange:#f2a57b; --header:rgba(20,26,25,.95); --hero:#24332f;
+ --hero-copy:#c5d0c8; --card:#202a27; --note:#bfcbc1; --label:#d7ded6;
+ --empty:#202c28; --empty-border:#57655b; --button-hover:#30423a;
+ --record-shadow:#070b0a7a;
+}
+html[data-soundroom-theme="dark"] [data-testid="stVerticalBlockBorderWrapper"] > div { background:var(--card); }
+html[data-soundroom-theme="light"] [data-testid="stVerticalBlockBorderWrapper"] > div { background:transparent; }
+html[data-soundroom-theme="dark"] .sleeve { color:#211e1a; }
+html[data-soundroom-theme="light"] .sleeve { color:#f9e9cd; }
+html[data-soundroom-theme="dark"] .stButton button[kind="primary"] { color:#22241f; }
+html[data-soundroom-theme="light"] .stButton button[kind="primary"] { color:white; }
+</style>
+<script>
+(() => {
+  if (window.__soundroomThemeTimer) clearInterval(window.__soundroomThemeTimer);
+  const brightness = value => {
+    const channels = value.match(/[\d.]+/g);
+    return channels && channels.length >= 3
+      ? (Number(channels[0]) * 299 + Number(channels[1]) * 587 + Number(channels[2]) * 114) / 1000
+      : null;
+  };
+  const update = () => {
+    const style = getComputedStyle(document.body);
+    const background = style.backgroundColor;
+    const transparent = background === 'transparent' || background.endsWith(', 0)');
+    const tone = brightness(transparent ? style.color : background);
+    if (tone !== null) {
+      document.documentElement.dataset.soundroomTheme = transparent
+        ? (tone > 145 ? 'dark' : 'light')
+        : (tone < 145 ? 'dark' : 'light');
+    }
+  };
+  update();
+  window.__soundroomThemeTimer = setInterval(update, 500);
+})();
+</script>
+""", unsafe_allow_javascript=True)
 
 if "saved_tracks" not in st.session_state:
     st.session_state.saved_tracks = []
@@ -160,12 +262,12 @@ with st.container(border=True):
     genre_col, mood_col, search_col = st.columns([1, 1, 1.5])
     genre = genre_col.selectbox("좋아하는 장르", ["전체 장르"] + list(dict.fromkeys(a[2] for a in ALBUMS)), key="genre")
     mood = mood_col.selectbox("지금의 기분", ["모든 기분", "집중할 때", "쉬고 싶을 때", "기분 올릴 때", "감성에 잠길 때"], key="mood")
-    search = search_col.text_input("곡 · 아티스트 · 앨범 검색", placeholder="SHINee, Jazz, 좋아하는 곡…", key="search")
+    search = search_col.text_input("곡 · 아티스트 · 앨범 검색", placeholder="SHINee, 재즈, 쉬고 싶을 때…", key="search")
 
-query = search.strip().casefold()
+query = search_words(search)
 matches = [t for t in TRACKS if (genre == "전체 장르" or t["genre"] == genre)
            and (mood == "모든 기분" or t["mood"] == mood)
-           and (not query or query in " ".join([t["title"], t["artist"], t["album"], t["genre"]]).casefold())]
+           and track_matches(t, query)]
 random.Random(st.session_state.shuffle_seed).shuffle(matches)
 
 title_col, shuffle_col = st.columns([3, 1])
@@ -174,7 +276,8 @@ shuffle_col.button("↻ 순서 섞기", on_click=shuffle, width="stretch", disab
 song_tab, album_tab, saved_tab = st.tabs(["곡 추천", "앨범 추천", f"내 플레이리스트 · {len(st.session_state.saved_tracks)}"])
 
 with song_tab:
-    st.html(f'<div class="result-line">취향에 맞는 <b>{len(matches)}곡</b> · 마음에 드는 곡은 하트로 담아두세요.</div>')
+    search_label = f'“{escape(search.strip())}” 검색 결과 · ' if query else ''
+    st.html(f'<div class="result-line">{search_label}취향에 맞는 <b>{len(matches)}곡</b> · 마음에 드는 곡은 하트로 담아두세요.</div>')
     if matches:
         track_grid(matches[:st.session_state.visible_tracks], "recommend")
         if len(matches) > st.session_state.visible_tracks:
